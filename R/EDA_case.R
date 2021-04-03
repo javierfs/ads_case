@@ -3,6 +3,8 @@ library(here)
 library(dplyr)
 library(patchwork)
 library(ggrepel)
+library(directlabels)
+library(ggbeeswarm)
 
 
 data <- read_csv(here('data','cleaned_merged_data_v1.csv'))
@@ -22,7 +24,7 @@ selected_data <- data %>%
 summary_data <- data %>%
                 group_by(CATEGORY_SECTION) %>%
                 summarise(nmr_users = n_distinct(USER_ID)) %>%
-                #mutate(share_users = (nmr_users/sum(nmr_users))*100)
+                mutate(share_users = (nmr_users/sum(nmr_users))*100)
                 
 summary_data %>%
   ggplot(aes(y = share_users, x = reorder(CATEGORY_SECTION, -share_users))) +
@@ -128,7 +130,7 @@ users_by_section %>%
   
 data_q4 <- read_csv(here('data','Q4_data.csv'))
 
-
+mycols<- c("#96B89D", "#E15053")
 data_q4 %>%
   na.omit(data_q4$ADDITIONAL_PRODUCT_TYPE)%>%
   mutate(difference_hours= difftime(DELETE_DTT, PUBLISH_DTT, units = "hours"),
@@ -139,32 +141,270 @@ data_q4 %>%
                                              ADDITIONAL_PRODUCT_TYPE=='AUTOBUMP' ~ 'Autobump'
   )) %>%
   #ggplot(aes(x=Ad_days_alive, y=CATEGORY_SECTION, fill=factor(ADDITIONAL_PRODUCT_TYPE))) +
-  ggplot(aes(x=difference_days, y=ADDITIONAL_PRODUCT_TYPE)) +
-  geom_jitter(position = position_jitter(height = .2, width = .02), alpha = .25, color='#E15053')+
+  ggplot(aes(x=difference_days, y=ADDITIONAL_PRODUCT_TYPE))+
+  geom_jitter(aes(col=factor(ADDITIONAL_PRODUCT_TYPE)), position = position_jitter(height = .2, width = .02), alpha = .25)+
   geom_boxplot(alpha = 0.6)+
   labs(y=NULL,
        x=NULL)+
   facet_wrap(~ CATEGORY_SECTION, ncol = 4, scales = "free") +
   scale_x_reverse()+
-  theme_minimal()
-
-
+  scale_fill_manual(values = mycols) +
+  scale_colour_manual(values = mycols)+
+  theme_minimal()+theme(legend.position="none")
 ##############################
-# Q4: How fast are items getting sold in different categories? 
+# Q5: How fast are items getting sold in different categories? 
+# BOX plots
 ##############################
 
+
+library(ggbeeswarm)
+data_q4$CATEGORY_SECTION <- factor(data_q4$CATEGORY_SECTION,levels = rev(c("Others", "Business", "Vehicles", "Leisure & Hobby","Electronics","Real Estate", "Home & Garden", "Personal Items" )))
 data_q4 %>%
-  filter(Ad_days_alive<8)%>%
   mutate(difference_hours= difftime(DELETE_DTT, PUBLISH_DTT, units = "hours"),
          difference_mins= difftime(DELETE_DTT, PUBLISH_DTT, units = "mins"),
          difference_days= difftime(DELETE_DTT, PUBLISH_DTT, units = "days"))%>%
   ggplot(aes(x=difference_days, y=CATEGORY_SECTION)) +
-  geom_jitter(position = position_jitter(height = .2, width = .02), alpha = .25, color='#E15053')+
-  geom_boxplot(alpha = 0.6) +
+  geom_boxplot(alpha = 0.6)+
+  scale_x_reverse(limits = c(75, -5), breaks = seq(75, 0, by = -5))+
+  labs(y=NULL,
+       x=NULL) +
+  scale_fill_manual(values=c("#E15053", "#E15053", "#E15053", "#E15053",
+                             "#E15053", "#E15053", "#E15053", "#E15053"))+
+  
+  theme_minimal()+
+  theme(legend.position="none")
+
+
+  
+
+
+
+##############################
+# Q5: How fast are items getting sold in different categories? 
+# Density plots
+##############################
+
+# Add mean line by groups
+mu <- iris %>%
+  group_by(Species) %>%
+  summarise(grp.mean = mean(Sepal.Length))
+
+
+
+
+library(ggbeeswarm)
+data_q4 %>%
+  filter(Ad_days_alive<65)%>%
+  mutate(difference_hours= difftime(DELETE_DTT, PUBLISH_DTT, units = "hours"),
+         difference_mins= difftime(DELETE_DTT, PUBLISH_DTT, units = "mins"),
+         difference_days= difftime(DELETE_DTT, PUBLISH_DTT, units = "days"))%>%
+  ggplot(aes(x=difference_days, group=CATEGORY_SECTION, color='#E15053')) +
+  #geom_histogram(aes(y = ..density..), alpha = 0.4, fill = "#E15053", bins=65)+
+  geom_density(adjust=1.5, alpha=.2) +
+  
+  #facet_wrap(~CATEGORY_SECTION, ncol=1)+
+  facet_wrap(~ CATEGORY_SECTION, ncol = 1, labeller=labeller(Index = as_labeller(c('1'="Bussiness",
+                                                                  '2'="Electronics",
+                                                                  '3'="Home & Garden", 
+                                                                  '4'='Leisure & Hobby',
+                                                                  '5'='Others', 
+                                                                  '6'='Personal Items', 
+                                                                  '7'='Real Estate', 
+                                                                  '8'='Vehicles'))), strip.position="left") +
+  #geom_violin()+
+  #geom_quasirandom()+
+  #geom_jitter(position = position_jitter(height = .2, width = .02), alpha = .25, color='#E15053')+
+  #geom_boxplot(alpha = 0.6) +
   labs(y=NULL,
        x='Selling time (days)')+
   scale_x_reverse()+
+  theme_minimal()+
+  theme(legend.position="none", strip.placement = "outside")
+
+##############################
+# Q5: How fast are items getting sold in different categories? 
+# Density plots (joyplots)
+##############################
+
+
+data_density_plots <- data_q4 %>% 
+  mutate(difference_hours= difftime(DELETE_DTT, PUBLISH_DTT, units = "hours"),
+         difference_mins= difftime(DELETE_DTT, PUBLISH_DTT, units = "mins"),
+         difference_days= difftime(DELETE_DTT, PUBLISH_DTT, units = "days")) 
+
+# lock in factor level order
+data_density_plots$CATEGORY_SECTION <- factor(data_density_plots$CATEGORY_SECTION, levels = unique(data_density_plots$CATEGORY_SECTION))
+
+custom.col <- c("#999999", "#E69F00", "#56B4E9", "#009E73",
+                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+data_density_plots %>%
+ ggplot(aes(x=difference_days,color=CATEGORY_SECTION)) +
+ #scale_colour_identity(guide="legend",breaks=unique(data_density_plots$CATEGORY_SECTION))+
+ geom_density()+
+ labs(y='P(Selling Time)',
+     x='Selling Time (days)')+
+scale_x_continuous(breaks=seq(1, 75, 1), limits = c(-5, 75))+
+scale_colour_manual(values=custom.col)+
   theme_minimal()
+  
+library(ggjoy)
+#E15053
+data_density_plots %>% 
+  ggplot(aes(x=difference_days, y=CATEGORY_SECTION, fill=CATEGORY_SECTION))+
+  geom_joy(scale = 2, alpha=0.5) +
+  scale_y_discrete(expand=c(0.01, 0)) +
+  scale_x_reverse(limits = c(75, -5), breaks = seq(75, 0, by = -5))+
+  labs(y=NULL,
+       x=NULL) +
+  scale_fill_manual(values=c("#E15053", "#E15053", "#E15053", "#E15053",
+                             "#E15053", "#E15053", "#E15053", "#E15053"))+
+  
+  theme_minimal()+
+  theme(legend.position="none")
+ 
+
+ 
+
+
+
+##############################
+# Q5: How fast are items getting sold in different categories? 
+# CDF
+##############################
+library(ggbeeswarm)
+data_q4 %>%
+  filter(Ad_days_alive<65)%>%
+  mutate(difference_hours= difftime(DELETE_DTT, PUBLISH_DTT, units = "hours"),
+         difference_mins= difftime(DELETE_DTT, PUBLISH_DTT, units = "mins"),
+         difference_days= difftime(DELETE_DTT, PUBLISH_DTT, units = "days"))%>%
+  ggplot(aes(x=Ad_days_alive, group=CATEGORY_SECTION, color='#E15053')) +
+  stat_ecdf(geom = "step")+
+  #geom_histogram(aes(y = ..density..), alpha = 0.4, fill = "#E15053", bins=65)+
+  #geom_density(adjust=1.5, alpha=.2) +
+  #facet_wrap(~CATEGORY_SECTION, ncol=1)+
+  facet_wrap(~ CATEGORY_SECTION, ncol = 1, labeller=labeller(Index = as_labeller(c('1'="Bussiness",
+                                                                                   '2'="Electronics",
+                                                                                   '3'="Home & Garden", 
+                                                                                   '4'='Leisure & Hobby',
+                                                                                   '5'='Others', 
+                                                                                   '6'='Personal Items', 
+                                                                                   '7'='Real Estate', 
+                                                                                   '8'='Vehicles'))), strip.position="left") +
+  #geom_violin()+
+  #geom_quasirandom()+
+  #geom_jitter(position = position_jitter(height = .2, width = .02), alpha = .25, color='#E15053')+
+  #geom_boxplot(alpha = 0.6) +
+  labs(y=NULL,
+       x='Selling time (days)')+
+  scale_x_reverse()+
+  theme_minimal()+
+  theme(legend.position="none", strip.placement = "outside")
+
+
+
+
+##############################
+# Q5: How fast are items getting sold in different categories? 
+# Barcharts + grouping 2  bars
+##############################
+
+# lock in factor level order
+data_q4$derma <- factor(df$derma, levels = df$derma)
+
+data_q4_viz_groups_bars <- data_q4 %>%
+  mutate(difference_hours= difftime(DELETE_DTT, PUBLISH_DTT, units = "hours"),
+         difference_mins = difftime(DELETE_DTT, PUBLISH_DTT, units = "mins"),
+         difference_days = difftime(DELETE_DTT, PUBLISH_DTT, units = "days"))%>%
+  mutate(selling_periods = case_when(difference_days < 30  ~ "< 1 Month",#difference_hours<= 24 ~ "<= 1 Day",
+                                     difference_days>1 & difference_days <= 7  ~ "<= 1 Week",
+                                     difference_days>7 & difference_days <= 14  ~ "<= 2 Weeks",
+                                     difference_days>7 & difference_days <= 30 ~ "< 1 Month",
+                                     difference_days > 30  ~ "> 1 Month"))%>%
+  group_by(CATEGORY_SECTION,selling_periods) %>%
+  summarise(nmr_ads = n()) %>%
+  mutate(percent_users = (nmr_ads/sum(nmr_ads))*100) 
+
+data_q4_viz_groups_bars$selling_periods <- factor(data_q4_viz_groups_bars$selling_periods,levels = c("<= 1 Day", "<= 1 Week", "<= 2 Weeks", "< 1 Month", "> 1 Month"))
+#data_q4_viz_groups_bars$selling_periods <- factor(data_q4_viz_groups_bars$selling_periods,levels = c("< 1 Month","> 1 Month"))
+
+data_q4_viz_groups_bars%>%
+  ggplot(aes(y=percent_users,  x = selling_periods)) +
+  geom_bar(position = 'dodge', stat='identity') +
+  geom_text(
+    aes(label = paste('n =', nmr_ads), y = percent_users + 0.35),
+    position = position_dodge(0.9),
+    vjust = 0,
+    size=3
+  ) +
+  facet_wrap(~ CATEGORY_SECTION, ncol = 1, labeller=labeller(Index = as_labeller(c('1'="Bussiness",
+                                                                                   '2'="Electronics",
+                                                                                   '3'="Home & Garden", 
+                                                                                   '4'='Leisure & Hobby',
+                                                                                   '5'='Others', 
+                                                                                   '6'='Personal Items', 
+                                                                                   '7'='Real Estate', 
+                                                                                   '8'='Vehicles'))), strip.position="left") +
+  theme_minimal()+
+  theme(legend.position="none", 
+        strip.placement = "outside",
+        plot.title = element_text(hjust = 0.5, face = "bold"),
+        plot.subtitle = element_text(hjust = 0.5))+
+  scale_y_continuous(labels = function(share_users) paste0(share_users, '%'))
+
+##############################
+# Q5: How fast are items getting sold in different categories? 
+# Barcharts + grouping 5  bars
+##############################
+
+# lock in factor level order
+data_q4$derma <- factor(df$derma, levels = df$derma)
+
+data_q4_viz_groups_bars <- data_q4 %>%
+  mutate(difference_hours= difftime(DELETE_DTT, PUBLISH_DTT, units = "hours"),
+         difference_mins = difftime(DELETE_DTT, PUBLISH_DTT, units = "mins"),
+         difference_days = difftime(DELETE_DTT, PUBLISH_DTT, units = "days"))%>%
+  mutate(selling_periods = case_when(difference_hours<= 24 ~ "<= 1 Day",
+                                     difference_days>1 & difference_days <= 2  ~ "<= 2 Days",
+                                     difference_days>2 & difference_days <= 3  ~ "<= 3 Days",
+                                     difference_days>3 & difference_days <= 4  ~ "<= 4 Days",
+                                     difference_days>4 & difference_days <= 5  ~ "<= 5 Days",
+                                     difference_days>5 & difference_days <= 6  ~ "<= 6 Days",
+                                     difference_days>6 & difference_days <= 7  ~ "<= 7 Days"))%>%
+                                     #difference_days > 30  ~ "> 1 Month"))%>%
+  group_by(CATEGORY_SECTION,selling_periods) %>%
+  summarise(nmr_ads = n()) 
+  #mutate(percent_users = (nmr_ads/sum(nmr_ads))*100) 
+
+data_q4_viz_groups_bars$selling_periods <- factor(data_q4_viz_groups_bars$selling_periods,levels = c("<= 1 Day", "<= 2 Days", "<= 3 Days", "<= 4 Days", "<= 5 Days", '<= 6 Days','<= 7 Days'))
+#data_q4_viz_groups_bars$selling_periods <- factor(data_q4_viz_groups_bars$selling_periods,levels = c("< 1 Month","> 1 Month"))
+
+data_q4_viz_groups_bars%>%
+  ggplot(aes(y=nmr_ads,  x = selling_periods)) +
+  geom_bar(position = 'dodge', stat='identity') +
+  geom_text(
+    aes(label = paste('n =', nmr_ads), y = nmr_ads + 0.35),
+    position = position_dodge(0.9),
+    vjust = 0,
+    size=3
+  ) +
+  facet_wrap(~ CATEGORY_SECTION, ncol = 1, labeller=labeller(Index = as_labeller(c('1'="Bussiness",
+                                                                                   '2'="Electronics",
+                                                                                   '3'="Home & Garden", 
+                                                                                   '4'='Leisure & Hobby',
+                                                                                   '5'='Others', 
+                                                                                   '6'='Personal Items', 
+                                                                                   '7'='Real Estate', 
+                                                                                   '8'='Vehicles'))), strip.position="left") +
+  theme_minimal()+
+  theme(legend.position="none", 
+        strip.placement = "outside",
+        plot.title = element_text(hjust = 0.5, face = "bold"),
+        plot.subtitle = element_text(hjust = 0.5))
+  #scale_y_continuous(labels = function(share_users) paste0(share_users, '%'))
+
+
+
+
 
 
   
@@ -173,9 +413,5 @@ data_q4 %>%
 
 
 
-  #select(CATEGORY_SECTION1, CATEGORY_GROUP1, USER_ID)
-  #mutate(percent_users = (nmr_users/sum(nmr_users_section))*100) %>%
-  #mutate(lab.ypos = cumsum(percent_users) - 0.6*percent_users) %>%
-  #mutate_if(is.numeric, round, digits = 2)
 
                 
