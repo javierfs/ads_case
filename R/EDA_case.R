@@ -131,19 +131,41 @@ data_q4 <- read_csv(here('data','Q4_data.csv'))
 
 data_q4 %>%
   na.omit(data_q4$ADDITIONAL_PRODUCT_TYPE)%>%
-  filter(Ad_days_alive< 80)%>%
+  mutate(difference_hours= difftime(DELETE_DTT, PUBLISH_DTT, units = "hours"),
+         difference_mins= difftime(DELETE_DTT, PUBLISH_DTT, units = "mins"),
+         difference_days= difftime(DELETE_DTT, PUBLISH_DTT, units = "days"))%>%
+  filter(difference_days< 80)%>%
   mutate(ADDITIONAL_PRODUCT_TYPE = case_when(ADDITIONAL_PRODUCT_TYPE=='GALLERY' ~ 'Gallery',
                                              ADDITIONAL_PRODUCT_TYPE=='AUTOBUMP' ~ 'Autobump'
   )) %>%
   #ggplot(aes(x=Ad_days_alive, y=CATEGORY_SECTION, fill=factor(ADDITIONAL_PRODUCT_TYPE))) +
-  ggplot(aes(x=Ad_days_alive, y=ADDITIONAL_PRODUCT_TYPE)) +
+  ggplot(aes(x=difference_days, y=ADDITIONAL_PRODUCT_TYPE)) +
   geom_jitter(position = position_jitter(height = .2, width = .02), alpha = .25, color='#E15053')+
   geom_boxplot(alpha = 0.6)+
   labs(y=NULL,
-       x='Selling time (days)')+
+       x=NULL)+
   facet_wrap(~ CATEGORY_SECTION, ncol = 4, scales = "free") +
   scale_x_reverse()+
   theme_minimal()
+
+
+##############################
+# Q4: How fast are items getting sold in different categories? 
+##############################
+
+data_q4 %>%
+  filter(Ad_days_alive<8)%>%
+  mutate(difference_hours= difftime(DELETE_DTT, PUBLISH_DTT, units = "hours"),
+         difference_mins= difftime(DELETE_DTT, PUBLISH_DTT, units = "mins"),
+         difference_days= difftime(DELETE_DTT, PUBLISH_DTT, units = "days"))%>%
+  ggplot(aes(x=difference_days, y=CATEGORY_SECTION)) +
+  geom_jitter(position = position_jitter(height = .2, width = .02), alpha = .25, color='#E15053')+
+  geom_boxplot(alpha = 0.6) +
+  labs(y=NULL,
+       x='Selling time (days)')+
+  scale_x_reverse()+
+  theme_minimal()
+
 
   
   
