@@ -5,6 +5,9 @@ library(patchwork)
 library(ggrepel)
 library(directlabels)
 library(ggbeeswarm)
+library(ggjoy)
+library(ggExtra)
+
 
 
 data <- read_csv(here('data','cleaned_merged_data_v1.csv'))
@@ -25,7 +28,7 @@ summary_data <- data %>%
                 group_by(CATEGORY_SECTION) %>%
                 summarise(nmr_users = n_distinct(USER_ID)) %>%
                 mutate(share_users = (nmr_users/sum(nmr_users))*100)
-                
+write.csv(summary_data,here('data', 'q1_unique_users_category_section.csv'), row.names = FALSE)               
 summary_data %>%
   ggplot(aes(y = share_users, x = reorder(CATEGORY_SECTION, -share_users))) +
   geom_bar(position = 'dodge', stat='identity') +
@@ -157,7 +160,7 @@ data_q4 %>%
 ##############################
 
 
-library(ggbeeswarm)
+
 data_q4$CATEGORY_SECTION <- factor(data_q4$CATEGORY_SECTION,levels = rev(c("Others", "Business", "Vehicles", "Leisure & Hobby","Electronics","Real Estate", "Home & Garden", "Personal Items" )))
 data_q4 %>%
   mutate(difference_hours= difftime(DELETE_DTT, PUBLISH_DTT, units = "hours"),
@@ -192,7 +195,7 @@ mu <- iris %>%
 
 
 
-library(ggbeeswarm)
+
 data_q4 %>%
   filter(Ad_days_alive<65)%>%
   mutate(difference_hours= difftime(DELETE_DTT, PUBLISH_DTT, units = "hours"),
@@ -247,7 +250,7 @@ scale_x_continuous(breaks=seq(1, 75, 1), limits = c(-5, 75))+
 scale_colour_manual(values=custom.col)+
   theme_minimal()
   
-library(ggjoy)
+
 #E15053
 data_density_plots %>% 
   ggplot(aes(x=difference_days, y=CATEGORY_SECTION, fill=CATEGORY_SECTION))+
@@ -271,7 +274,7 @@ data_density_plots %>%
 # Q5: How fast are items getting sold in different categories? 
 # CDF
 ##############################
-library(ggbeeswarm)
+
 data_q4 %>%
   filter(Ad_days_alive<65)%>%
   mutate(difference_hours= difftime(DELETE_DTT, PUBLISH_DTT, units = "hours"),
@@ -404,14 +407,54 @@ data_q4_viz_groups_bars%>%
 
 
 
+##############################
+# Q5.2: Is number of received views a good indicator of selling time?
+# Marginal Plots
+##############################
 
 
 
+
+#Getting data for data_q5_1 just views, and difference
+data_q5_1_2sample <-data_q4 %>%
+  mutate(difference_days= as.numeric(difftime(DELETE_DTT, PUBLISH_DTT, units = "days")))%>%
+  select(CATEGORY_SECTION, AD_VIEWS, difference_days)
+
+
+#SAMPLEANDO 
+set.seed(1)
+df_sampled <- data_q5_1_2sample %>%
+  group_by(CATEGORY_SECTION) %>%
+  sample_frac(.15)
+
+df_sampled%>%
+  group_by(CATEGORY_SECTION)%>%
+  summarise(max(AD_VIEWS), n())
+
+
+
+data_q4$CATEGORY_SECTION <- factor(data_q4$CATEGORY_SECTION,levels = rev(c("Others", "Business", "Vehicles", "Leisure & Hobby","Electronics","Real Estate", "Home & Garden", "Personal Items" )))
+data_q5_1 <- data_q5_1_2sample %>%
+  filter(CATEGORY_SECTION=="Business") %>%
+  ungroup()%>%
+  select(AD_VIEWS, difference_days)
   
-  
+p <- ggplot(data_q5_1,aes(x=difference_days, y=AD_VIEWS)) +
+geom_point(alpha = 0.5,size = 0.03, color='#E15053')+
+geom_smooth(method='loess',se=FALSE,aes(color='#d10f13', fill ='#837f7f'))+
+labs(y=NULL,
+     x=NULL) +
+theme_minimal()+
+theme(legend.position="none")+
+scale_x_continuous(limits = c(-5, 60), breaks = seq(0, 60, by = 5))+
+scale_y_continuous(limits = c(0,2500))
+
+ggMarginal(p, type='histogram', xparams = list(binwidth=1, fill='#E15053',alpha = 0.7), yparams = list(binwidth=75, fill='#E15053',alpha = 0.7))
+
+ 
 
 
-
-
-
+data_q5_1_2sample%>%
+  group_by(CATEGORY_SECTION)%>%
+  summarise(max(AD_VIEWS), n())
                 
