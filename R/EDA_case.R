@@ -133,13 +133,13 @@ users_by_section %>%
   
 data_q4 <- read_csv(here('data','Q4_data.csv'))
 
-mycols<- c("#96B89D", "#E15053")
+mycols<- c("#E15053", "#E15053")
 data_q4 %>%
   na.omit(data_q4$ADDITIONAL_PRODUCT_TYPE)%>%
   mutate(difference_hours= difftime(DELETE_DTT, PUBLISH_DTT, units = "hours"),
          difference_mins= difftime(DELETE_DTT, PUBLISH_DTT, units = "mins"),
          difference_days= difftime(DELETE_DTT, PUBLISH_DTT, units = "days"))%>%
-  filter(difference_days< 80)%>%
+  filter(REMOVE_REASON_FCT== 'sold_on_blocket')%>%
   mutate(ADDITIONAL_PRODUCT_TYPE = case_when(ADDITIONAL_PRODUCT_TYPE=='GALLERY' ~ 'Gallery',
                                              ADDITIONAL_PRODUCT_TYPE=='AUTOBUMP' ~ 'Autobump'
   )) %>%
@@ -150,7 +150,7 @@ data_q4 %>%
   labs(y=NULL,
        x=NULL)+
   facet_wrap(~ CATEGORY_SECTION, ncol = 4, scales = "free") +
-  scale_x_reverse()+
+  scale_x_reverse(limits = c(80, -5))+
   scale_fill_manual(values = mycols) +
   scale_colour_manual(values = mycols)+
   theme_minimal()+theme(legend.position="none")
@@ -166,9 +166,11 @@ data_q4 %>%
   mutate(difference_hours= difftime(DELETE_DTT, PUBLISH_DTT, units = "hours"),
          difference_mins= difftime(DELETE_DTT, PUBLISH_DTT, units = "mins"),
          difference_days= difftime(DELETE_DTT, PUBLISH_DTT, units = "days"))%>%
+  filter(REMOVE_REASON_FCT== 'sold_on_blocket')%>%
   ggplot(aes(x=difference_days, y=CATEGORY_SECTION)) +
+  #geom_jitter(aes(col=factor(ADDITIONAL_PRODUCT_TYPE)), position = position_jitter(height = .2, width = .02), alpha = .25)+
   geom_boxplot(alpha = 0.6)+
-  scale_x_reverse(limits = c(75, -5), breaks = seq(75, 0, by = -5))+
+  scale_x_reverse(limits = c(45, -5), breaks = seq(75, 0, by = -5))+
   labs(y=NULL,
        x=NULL) +
   scale_fill_manual(values=c("#E15053", "#E15053", "#E15053", "#E15053",
@@ -233,7 +235,8 @@ data_q4 %>%
 data_density_plots <- data_q4 %>% 
   mutate(difference_hours= difftime(DELETE_DTT, PUBLISH_DTT, units = "hours"),
          difference_mins= difftime(DELETE_DTT, PUBLISH_DTT, units = "mins"),
-         difference_days= difftime(DELETE_DTT, PUBLISH_DTT, units = "days")) 
+         difference_days= difftime(DELETE_DTT, PUBLISH_DTT, units = "days"))%>%
+  filter(REMOVE_REASON_FCT== 'sold_on_blocket')
 
 # lock in factor level order
 data_density_plots$CATEGORY_SECTION <- factor(data_density_plots$CATEGORY_SECTION, levels = unique(data_density_plots$CATEGORY_SECTION))
@@ -417,6 +420,7 @@ data_q4_viz_groups_bars%>%
 
 #Getting data for data_q5_1 just views, and difference
 data_q5_1_2sample <-data_q4 %>%
+  filter(REMOVE_REASON_FCT== 'sold_on_blocket')%>%
   mutate(difference_days= as.numeric(difftime(DELETE_DTT, PUBLISH_DTT, units = "days")))%>%
   select(CATEGORY_SECTION, AD_VIEWS, difference_days)
 
@@ -435,21 +439,28 @@ df_sampled%>%
 
 data_q4$CATEGORY_SECTION <- factor(data_q4$CATEGORY_SECTION,levels = rev(c("Others", "Business", "Vehicles", "Leisure & Hobby","Electronics","Real Estate", "Home & Garden", "Personal Items" )))
 data_q5_1 <- data_q5_1_2sample %>%
-  filter(CATEGORY_SECTION=="Business") %>%
+  filter(CATEGORY_SECTION=="Personal Items") %>%
   ungroup()%>%
   select(AD_VIEWS, difference_days)
   
-p <- ggplot(data_q5_1,aes(x=difference_days, y=AD_VIEWS)) +
-geom_point(alpha = 0.5,size = 0.03, color='#E15053')+
-geom_smooth(method='loess',se=FALSE,aes(color='#d10f13', fill ='#837f7f'))+
+p <- ggplot(data_q5_1,aes(x=AD_VIEWS, y=difference_days)) +
+#geom_point(alpha = 0.5,size = 0.03, color='#E15053')+
+geom_smooth(method='loess',se=TRUE,aes(color='#d10f13'))+
 labs(y=NULL,
      x=NULL) +
 theme_minimal()+
 theme(legend.position="none")+
-scale_x_continuous(limits = c(-5, 60), breaks = seq(0, 60, by = 5))+
-scale_y_continuous(limits = c(0,2500))
+# scale_y_reverse(limits = c(60, -5), breaks = seq(60, -5, by = 5))+
+scale_y_continuous(limits = c(-5, 60), breaks = seq(0, 60, by = 5))+
+scale_x_continuous(limits = c(0,500))+
+annotate("text", x = 400, y = 50, col = "purple", size = 6,
+         label = paste("Pearson r = ", signif(cor(data_q5_1$AD_VIEWS, data_q5_1$difference_days),3))) +
+  annotate("text", x = 300, y = 5,  col = "red", size = 5,
+           label = paste("y = ", signif(coef(lm(data_q5_1$difference_days ~ data_q5_1$AD_VIEWS))[1],3), 
+                         signif(coef(lm(data_q5_1$difference_days ~ data_q5_1$AD_VIEWS))[2],2), "x"))
 
-ggMarginal(p, type='histogram', xparams = list(binwidth=1, fill='#E15053',alpha = 0.7), yparams = list(binwidth=75, fill='#E15053',alpha = 0.7))
+p
+ggMarginal(p, type='histogram', xparams = list(binwidth=75, fill='#E15053',alpha = 0.7), yparams = list(binwidth=2, fill='#E15053',alpha = 0.7))
 
  
 
@@ -457,4 +468,68 @@ ggMarginal(p, type='histogram', xparams = list(binwidth=1, fill='#E15053',alpha 
 data_q5_1_2sample%>%
   group_by(CATEGORY_SECTION)%>%
   summarise(max(AD_VIEWS), n())
+
+
+##############################
+# Q5.2: Is number of received views a good indicator of selling time?
+# Local Regressions (LOESS)
+##############################
+
+#Getting data for data_q5_1 just views, and difference
+data_q5_1_2sample <-data_q4 %>%
+  filter(REMOVE_REASON_FCT== 'sold_on_blocket')%>%
+  mutate(difference_days= as.numeric(difftime(DELETE_DTT, PUBLISH_DTT, units = "days")))%>%
+  select(CATEGORY_SECTION, AD_VIEWS, difference_days)
+
+
+
+data_q4$CATEGORY_SECTION <- factor(data_q4$CATEGORY_SECTION,levels = rev(c("Others", "Business", "Vehicles", "Leisure & Hobby","Electronics","Real Estate", "Home & Garden", "Personal Items" )))
+for (section in c("Others", "Business", "Vehicles", "Leisure & Hobby","Electronics","Real Estate", "Home & Garden", "Personal Items" )){
+  print(paste("Section is", section))
+  data_q5_1_2sample %>%
+    filter(CATEGORY_SECTION==section) %>%
+    ungroup()%>%
+    select(AD_VIEWS, difference_days) %>%
+    ggplot(aes(x=AD_VIEWS, y=difference_days)) +
+    geom_smooth(method='loess',se=FALSE,aes(color='#d10f13'))+
+    labs(y=NULL,
+           x=NULL) +
+    theme_minimal()+
+    theme(legend.position="none")+
+    scale_y_continuous(limits = c(-5, 60), breaks = seq(0, 60, by = 5))+
+    scale_x_continuous(limits = c(0,1000))+
+    ggtitle(section)+
+    ggsave(here(paste0('docs/last_regressions/',section,'.png')))
+  print(paste("Finish section: ", section))
+}
+
+
+for (section in c("Others", "Business", "Vehicles", "Leisure & Hobby","Electronics","Real Estate", "Home & Garden", "Personal Items" )){
+  print(paste("Section is", section))
+}
                 
+
+##############################
+# Q5.2: Is number of received views a good indicator of selling time?
+# Regressions with p and R
+##############################
+#Getting data for data_q5_1 just views, and difference
+library(ggpubr)
+data_q5_1_2sample <-data_q4 %>%
+  filter(REMOVE_REASON_FCT== 'sold_on_blocket')%>%
+  mutate(difference_days= as.numeric(difftime(DELETE_DTT, PUBLISH_DTT, units = "days")))%>%
+  select(CATEGORY_SECTION, AD_VIEWS, difference_days)
+
+data_reg<-data_q5_1_2sample %>%
+  filter(CATEGORY_SECTION=='Others') %>%
+  ungroup()%>%
+  select(AD_VIEWS, difference_days)
+
+  ggscatter(data_reg, x='AD_VIEWS', y='difference_days',
+                add = "reg.line",  # Add regressin line
+                add.params = list(color = "blue", fill = "lightgray"), # Customize reg. line
+                conf.int = TRUE)+ 
+  scale_y_continuous(limits = c(-5, 60), breaks = seq(0, 60, by = 5))+
+  scale_x_continuous(limits = c(0,500))+
+  stat_cor(method = "pearson", label.x = 3, label.y = 30)
+
